@@ -10,6 +10,7 @@ import (
 	"strings"
 	"fmt"
 	"bufio"
+	"strconv"
 )
 
 type Key struct {
@@ -40,6 +41,10 @@ var (
 	exclude	  = flag.String("except", "", "Exclude streams from input source (a comma separated list)")
 	commit 	  = flag.Bool("commit", false, "Commit data to file/topic, otherwise just print result")
 	filePath  = flag.String("file", "", "Checkpoints file path")
+
+	diff      = flag.Bool("diff", false, "diff")
+	jobName1  = flag.String("job1", "", "Samza job name")
+	jobName2  = flag.String("job2", "", "Samza job name")
 )
 
 func main() {
@@ -121,6 +126,41 @@ func main() {
 		}
 
 		os.Exit(0)
+	}
+
+	if *diff {
+
+		topic1 := fmt.Sprintf("__samza_checkpoint_ver_1_for_%s_1", *jobName1)
+		topic2 := fmt.Sprintf("__samza_checkpoint_ver_1_for_%s_1", *jobName2)
+
+		checkpoints := readCheckpointsFromTopic(topic1, consumer)
+		checkpoints2 := readCheckpointsFromTopic(topic2, consumer)
+
+		for key := range checkpoints {
+
+			log.Println("------------------")
+
+			streams := checkpoints[key]
+
+			for streamKey := range streams {
+				stream := streams[streamKey]
+				streamTopic := stream.Stream
+
+				streamOffset := stream.Offset
+				streamPart := stream.Partition
+				streamOffset2 := checkpoints2[key][streamKey].Offset
+
+				streamOffsetLong, _ := (strconv.Atoi(streamOffset))
+				streamOffsetLong2, _ := (strconv.Atoi(streamOffset2))
+
+				differ := streamOffset2 - streamOffset
+				if (differ < 0) {
+					log.Println("MINUS", streamPart, streamTopic,  streamOffsetLong2 - streamOffsetLong)
+				} else {
+					log.Println(streamPart, streamTopic, streamOffsetLong2 - streamOffsetLong)
+				}
+			}
+		}
 	}
 
 	flag.PrintDefaults()
@@ -254,7 +294,9 @@ func printCheckpoints(checkpoints Checkpoints) {
 }
 
 func readCheckpointsFromTopic(topic string, consumer sarama.Consumer) Checkpoints {
-	c, _ := consumer.ConsumePartition(topic, 0, 0)
+	c, _ := consumer.ConsumePartition(topic, 0, sarama.OffsetOldest)
+	//c, _ := consumer.ConsumePartition(topic, 0, 0)
+
 
 	checkpoints := make(Checkpoints)
 
