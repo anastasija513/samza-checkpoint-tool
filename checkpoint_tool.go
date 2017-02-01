@@ -153,7 +153,7 @@ func main() {
 				streamOffsetLong, _ := (strconv.Atoi(streamOffset))
 				streamOffsetLong2, _ := (strconv.Atoi(streamOffset2))
 
-				differ := streamOffset2 - streamOffset
+				differ := streamOffsetLong2 - streamOffsetLong
 				if (differ < 0) {
 					log.Println("MINUS", streamPart, streamTopic,  streamOffsetLong2 - streamOffsetLong)
 				} else {
